@@ -1,12 +1,13 @@
-import type { timeWindows } from '@openpanel/constants';
-import type { IInterval } from '@openpanel/validation';
+import type {
+  IInterval,
+  timeWindows,
+} from '@openpanel/core/modules/report/report.constants';
 import { curveMonotoneX } from '@visx/curve';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Grid } from '../charts/grid';
 import { Line } from '../charts/line';
 import { LineChart } from '../charts/line-chart';
 import { useDashedTail } from '../charts/op-dashed-tail';
-import { OPDatePill } from '../charts/op-date-pill';
 import { OPChartTooltip } from '../charts/op-tooltip';
 import { XAxis } from '../charts/x-axis';
 import { YAxis } from '../charts/y-axis';
@@ -50,9 +51,11 @@ function transformData(
   visibleSeries: SeriesMeta[]
 ): ChartPoint[] {
   const allDates = new Set<string>();
-  items.forEach((item) => {
-    item.data.forEach((d) => allDates.add(d.date));
-  });
+  for (const item of items) {
+    for (const point of item.data) {
+      allDates.add(point.date);
+    }
+  }
 
   return Array.from(allDates)
     .sort()
@@ -144,7 +147,6 @@ export function OverviewLineChart({
               strokeWidth={1.5}
             />
           ))}
-          <OPDatePill interval={interval} />
           <OPChartTooltip<ChartPoint>
             extra={() => {
               const total = visibleSeries.length;
@@ -210,7 +212,6 @@ export function OverviewLineChart({
               }));
             }}
             showCrosshair
-            showDatePill={false}
             showDots
           />
         </LineChart>

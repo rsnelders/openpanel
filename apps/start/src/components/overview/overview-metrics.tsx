@@ -1,14 +1,13 @@
-import type { IInterval } from '@openpanel/validation';
+import type { IInterval } from '@openpanel/core/modules/report/report.constants';
 import { useQuery } from '@tanstack/react-query';
 import { curveMonotoneX } from '@visx/curve';
-import { DollarSignIcon } from 'lucide-react';
+import { DollarSignIcon, RotateCwIcon } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Area } from '../charts/area';
 import { ComposedChart } from '../charts/composed-chart';
 import { Grid } from '../charts/grid';
 import { Line } from '../charts/line';
 import { useDashedTail } from '../charts/op-dashed-tail';
-import { OPDatePill } from '../charts/op-date-pill';
 import { OPReferences } from '../charts/op-references';
 import { OPReferrerSpikes } from '../charts/op-referrer-spikes';
 import { OPSeriesDots } from '../charts/op-series-dots';
@@ -16,6 +15,7 @@ import { OPChartTooltip } from '../charts/op-tooltip';
 import { XAxis } from '../charts/x-axis';
 import { YAxis } from '../charts/y-axis';
 import { Skeleton } from '../skeleton';
+import { Button } from '../ui/button';
 import { OverviewLiveHistogram } from './overview-live-histogram';
 import { OverviewMetricCard } from './overview-metric-card';
 import { useOverviewOptions } from '@/components/overview/useOverviewOptions';
@@ -124,6 +124,7 @@ export default function OverviewMetrics({
             id={title.key}
             interval={interval}
             inverted={title.inverted}
+            isError={overviewQuery.isError}
             isLoading={overviewQuery.isLoading}
             key={title.key}
             label={title.title}
@@ -164,7 +165,21 @@ export default function OverviewMetrics({
         </div>
         <div className="h-[190px] w-full">
           {overviewQuery.isLoading && <Skeleton className="h-full w-full" />}
-          {!overviewQuery.isLoading && data.length > 0 && (
+          {overviewQuery.isError && (
+            <div className="center-center h-full flex-col gap-3 text-center text-muted-foreground text-sm">
+              We could not load this data. Try again in a moment.
+              <Button
+                icon={RotateCwIcon}
+                loading={overviewQuery.isFetching}
+                onClick={() => overviewQuery.refetch()}
+                size="sm"
+                variant="outline"
+              >
+                Try again
+              </Button>
+            </div>
+          )}
+          {overviewQuery.isSuccess && data.length > 0 && (
             <Chart
               activeMetric={activeMetric}
               data={data}
@@ -309,7 +324,7 @@ function Chart({
       };
     }
 
-    // Pin revenue peak at ~60% of the primary metric's peak so bars stay
+    // Pin revenue peak at 40% of the primary metric's peak so bars stay
     // legible without overshadowing the line/area.
     const scale = (maxPrimary * 0.4) / maxRevenue;
     return {
@@ -369,8 +384,6 @@ function Chart({
           strokeWidth={1.5}
         />
       )}
-
-      <OPDatePill interval={interval} />
       <OPSeriesDots
         dots={[
           { dataKey: activeMetric.key, color: primaryColor },
@@ -426,7 +439,6 @@ function Chart({
 
           return rows;
         }}
-        showDatePill={false}
         showDots={false}
         spikes={flatSpikes}
       />

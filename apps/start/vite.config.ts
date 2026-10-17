@@ -21,16 +21,35 @@ if (process.env.NITRO) {
     nitroV2Plugin({
       preset: 'node-server',
       compatibilityDate: '2025-10-21',
-    }),
+    })
   );
 } else {
   plugins.unshift(cloudflare({ viteEnvironment: { name: 'ssr' } }));
 }
 
+// Behind the hub's Caddy the page is `https://<name>.openpanel.cc`: Vite has to accept that Host,
+// and its HMR client has to dial 443 over wss instead of the dev port.
+const behindProxy = (process.env.DASHBOARD_URL ?? '').startsWith('https://');
+
 const config = defineConfig({
   plugins,
+  server: {
+    allowedHosts: ['.openpanel.cc'],
+    ...(behindProxy ? { hmr: { protocol: 'wss', clientPort: 443 } } : {}),
+  },
   ssr: {
-    noExternal: ['react-syntax-highlighter', 'lowlight', 'highlight.js'],
+    noExternal: [
+      'react-syntax-highlighter',
+      'lowlight',
+      'highlight.js',
+      // CommonJS that Node's ESM loader gets wrong in the built server:
+      // @visx/responsive imports `lodash/debounce` without an extension, and
+      // react-svg-worldmap's default export arrives as `{ default }`. Bundled,
+      // both resolve.
+      '@visx/responsive',
+      'lodash',
+      'react-svg-worldmap',
+    ],
   },
 });
 

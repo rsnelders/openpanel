@@ -1,8 +1,6 @@
 import { mergeDeepRight } from 'ramda';
-import React, { memo, type RefObject, useEffect, useRef } from 'react';
+import { type RefObject, useEffect, useRef } from 'react';
 import { useInViewport } from 'react-in-viewport';
-
-import { shallowEqual } from 'react-redux';
 import { ReportAreaChart } from './area';
 import { ReportBarChart } from './bar';
 import type { ReportChartProps } from './context';
@@ -16,6 +14,7 @@ import { ReportMetricChart } from './metric';
 import { ReportPieChart } from './pie';
 import { ReportRetentionChart } from './retention';
 import { ReportSankeyChart } from './sankey';
+import { cn } from '@/utils/cn';
 
 export const ReportChart = ({ lazy = true, ...props }: ReportChartProps) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -25,7 +24,7 @@ export const ReportChart = ({ lazy = true, ...props }: ReportChartProps) => {
     undefined,
     {
       disconnectOnLeave: true,
-    },
+    }
   );
 
   useEffect(() => {
@@ -66,9 +65,15 @@ export const ReportChart = ({ lazy = true, ...props }: ReportChartProps) => {
   };
 
   return (
-    <div ref={ref}>
+    <div
+      className={cn('w-full', props.layout === 'fill' && 'h-full min-h-0')}
+      ref={ref}
+    >
       <ReportChartProvider
-        {...mergeDeepRight({ options: {}, isEditMode: false }, props)}
+        {...mergeDeepRight(
+          { options: {}, isEditMode: false, layout: 'aspect' as const },
+          props
+        )}
         isLazyLoading={!loaded}
       >
         {renderReportChart()}

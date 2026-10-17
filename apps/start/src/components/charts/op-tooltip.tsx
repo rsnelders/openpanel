@@ -1,13 +1,14 @@
-import { getPreviousMetric } from '@openpanel/common';
-import type { IInterval } from '@openpanel/validation';
+import type { IInterval } from '@openpanel/core/modules/report/report.constants';
 import { type ReactNode, useMemo } from 'react';
-import { SerieIcon } from '@/components/report-chart/common/serie-icon';
+import { getPreviousMetric } from '../../utils/previous-metric';
 import { PreviousDiffIndicatorPure } from '../report-chart/common/previous-diff-indicator';
 import { useChart } from './chart-context';
 import type { ChartMarker } from './markers/marker-group';
-import type { OPReferrerSpikeItem } from './op-referrer-spikes';
+import { OPDatePill } from './op-date-pill';
 import { type OPReferenceItem, toChartMarkers } from './op-references';
+import type { OPReferrerSpikeItem } from './op-referrer-spikes';
 import { ChartTooltip, type ChartTooltipProps } from './tooltip/chart-tooltip';
+import { SerieIcon } from '@/components/report-chart/common/serie-icon';
 import { useFormatDateInterval } from '@/hooks/use-format-date-interval';
 import { fancyMinutes, useNumber } from '@/hooks/use-numer-formatter';
 import { cn } from '@/utils/cn';
@@ -29,6 +30,8 @@ export interface OPTooltipRow {
   value?: number | null;
   /** How to format `value`. Default: 'count' (locale string). */
   unit?: OPTooltipUnit;
+  /** Formats `value` and `previous`; wins over `unit`. */
+  format?: (value: number) => string;
   /** Optional previous-period value — shown as "(prev)" next to value */
   previous?: number | null;
   /** Whether higher previous is better (e.g. bounce rate is inverted) */
@@ -66,6 +69,8 @@ export interface OPChartTooltipProps<T extends Record<string, unknown>>
   referencesLimit?: number;
   /** Auto-detected referrer spikes; the matching bucket's spike is shown below. */
   spikes?: OPReferrerSpikeItem[] | null;
+  /** Show the hovered date (or category) in a pill on the x axis. Default: true. */
+  datePill?: boolean;
 }
 
 export function OPChartTooltip<T extends Record<string, unknown>>({
@@ -77,6 +82,7 @@ export function OPChartTooltip<T extends Record<string, unknown>>({
   references,
   referencesLimit = 3,
   spikes,
+  datePill = true,
   ...rest
 }: OPChartTooltipProps<T>) {
   const referenceMarkers = useMemo(
@@ -85,22 +91,26 @@ export function OPChartTooltip<T extends Record<string, unknown>>({
   );
 
   return (
-    <ChartTooltip
-      {...rest}
-      content={({ point }) => (
-        <OPTooltipBody
-          extra={extra ? extra(point as T) : null}
-          interval={interval}
-          minWidth={minWidth}
-          point={point as T}
-          referenceMarkers={referenceMarkers}
-          referencesLimit={referencesLimit}
-          rows={rows(point as T)}
-          spikes={spikes ?? null}
-          title={title ? title(point as T) : undefined}
-        />
-      )}
-    />
+    <>
+      <ChartTooltip
+        {...rest}
+        content={({ point }) => (
+          <OPTooltipBody
+            extra={extra ? extra(point as T) : null}
+            interval={interval}
+            minWidth={minWidth}
+            point={point as T}
+            referenceMarkers={referenceMarkers}
+            referencesLimit={referencesLimit}
+            rows={rows(point as T)}
+            spikes={spikes ?? null}
+            title={title ? title(point as T) : undefined}
+          />
+        )}
+        showDatePill={false}
+      />
+      {datePill && <OPDatePill interval={interval} />}
+    </>
   );
 }
 
@@ -200,20 +210,20 @@ function useReferencesForHoveredPoint(
 }
 
 function useSpikeForHoveredPoint(
-  spikes: OPReferrerSpikeItem[] | null,
+  spikes: OPReferrerSpikeItem[] | null
 ): OPReferrerSpikeItem | null {
   const { tooltipData, data, xAccessor } = useChart();
 
   const nearestIndices = useMemo(
     () =>
       computeNearestIndices(spikes ?? [], data, xAccessor, (s) =>
-        typeof s.date === 'string' ? new Date(s.date) : s.date,
+        typeof s.date === 'string' ? new Date(s.date) : s.date
       ),
-    [spikes, data, xAccessor],
+    [spikes, data, xAccessor]
   );
 
   return useMemo(() => {
-    if (!tooltipData || !spikes || spikes.length === 0) {
+    if (!(tooltipData && spikes) || spikes.length === 0) {
       return null;
     }
     const hoveredIndex = tooltipData.index;
@@ -235,7 +245,7 @@ function computeNearestIndices<T>(
   items: T[],
   data: Record<string, unknown>[],
   xAccessor: (d: Record<string, unknown>) => Date,
-  getDate: (item: T) => Date,
+  getDate: (item: T) => Date
 ): number[] {
   if (items.length === 0 || data.length === 0) {
     return [];
@@ -251,7 +261,9 @@ function computeNearestIndices<T>(
     let minDiff = Number.POSITIVE_INFINITY;
     for (let i = 0; i < dataTimes.length; i++) {
       const t = dataTimes[i]!;
-      if (Number.isNaN(t)) continue;
+      if (Number.isNaN(t)) {
+        continue;
+      }
       const diff = Math.abs(t - target);
       if (diff < minDiff) {
         minDiff = diff;
@@ -273,16 +285,18 @@ function OPAnnotationsBlock({
 }) {
   const visibleRefs = references.slice(0, referencesLimit);
   const hiddenRefs = Math.max(0, references.length - referencesLimit);
-  if (visibleRefs.length === 0 && !spike) return null;
+  if (visibleRefs.length === 0 && !spike) {
+    return null;
+  }
 
   return (
     <div className="col mt-1 gap-2 border-border border-t pt-2">
       {visibleRefs.map((marker) => (
         <OPAnnotationRow
-          key={marker.title}
-          icon={marker.icon}
-          title={marker.title}
           description={marker.description}
+          icon={marker.icon}
+          key={marker.title}
+          title={marker.title}
         />
       ))}
       {hiddenRefs > 0 && (
@@ -318,9 +332,9 @@ function OPSpikeAnnotation({ spike }: { spike: OPReferrerSpikeItem }) {
 
   return (
     <OPAnnotationRow
+      description={description}
       icon={<SerieIcon fill name={spike.referrer_name} />}
       title={`Spike from ${spike.referrer_name}`}
-      description={description}
     />
   );
 }
@@ -370,10 +384,7 @@ export function OPTooltipCard({
 }) {
   return (
     <div
-      className={cn(
-        'col gap-2 rounded-xl border border-border/60 p-3 text-foreground shadow-xl',
-        className
-      )}
+      className={cn('col gap-2 p-3 text-foreground', className)}
       style={style}
     >
       {children}
@@ -385,10 +396,13 @@ function OPTooltipRowView({ row }: { row: OPTooltipRow }) {
   const number = useNumber();
   const hasValue = row.value != null;
   const prev = row.previous ?? null;
-  const showPrev = prev != null && prev !== 0;
-  const showDiff = row.showDiff !== false && showPrev;
+  const showPrev = prev != null;
+  // A change from zero has no percentage.
+  const showDiff = row.showDiff !== false && showPrev && prev !== 0;
   const diff =
     showDiff && hasValue ? getPreviousMetric(row.value!, prev) : null;
+  const formatValue = (value: number) =>
+    row.format ? row.format(value) : formatOPValue(value, row.unit, number);
 
   return (
     <div className="flex gap-2">
@@ -403,10 +417,10 @@ function OPTooltipRowView({ row }: { row: OPTooltipRow }) {
         {hasValue && (
           <div className="flex items-center justify-between gap-8 font-medium font-mono">
             <div className="row items-baseline gap-1">
-              <span>{formatOPValue(row.value!, row.unit, number)}</span>
+              <span>{formatValue(row.value!)}</span>
               {showPrev && (
                 <span className="text-muted-foreground">
-                  ({formatOPValue(prev, row.unit, number)})
+                  ({formatValue(prev)})
                 </span>
               )}
               {row.percentage != null && (
